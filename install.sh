@@ -184,7 +184,7 @@ install_rollback_script() {
   if [ -f "${local_script}" ]; then
     install -m 755 "${local_script}" "${ROLLBACK_SCRIPT_PATH}"
   else
-    local url="https://agent.getberth.dev/rollback.sh"
+    local url="https://raw.githubusercontent.com/berth-app/berth-agent/main/rollback.sh"
     if command -v curl &>/dev/null; then
       curl -fsSL -o "${ROLLBACK_SCRIPT_PATH}" "${url}"
     elif command -v wget &>/dev/null; then
