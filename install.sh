@@ -153,7 +153,7 @@ create_user() {
 # ---------------------------------------------------------------------------
 
 download_binary() {
-  local url="${BASE_URL}/${BINARY_NAME}-${ARCH}-unknown-linux-gnu"
+  local url="${BASE_URL}/${BINARY_NAME}-linux-${ARCH}"
   info "Downloading ${BINARY_NAME} from ${url}..."
 
   if command -v curl &>/dev/null; then
