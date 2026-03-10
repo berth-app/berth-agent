@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Berth Agent - Documentation</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --red: #f85149;
+    --orange: #d29922;
+    --purple: #bc8cff;
+    --pink: #f778ba;
+    --cyan: #39d2c0;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+  }
+  .container { max-width: 1100px; margin: 0 auto; padding: 2rem; }
+  h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+  h2 { font-size: 1.5rem; margin: 2.5rem 0 1rem; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+  h3 { font-size: 1.15rem; margin: 1.5rem 0 0.5rem; color: var(--text); }
+  h4 { font-size: 0.95rem; margin: 1rem 0 0.3rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  p, li { color: var(--muted); }
+  p { margin: 0.5rem 0; }
+  ul, ol { margin: 0.5rem 0 0.5rem 1.5rem; }
+  li { margin: 0.3rem 0; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code { font-family: 'SF Mono', 'Fira Code', monospace; background: var(--surface); padding: 0.15em 0.4em; border-radius: 4px; font-size: 0.9em; color: var(--text); }
+  pre { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; overflow-x: auto; margin: 0.75rem 0; }
+  pre code { background: none; padding: 0; }
+  table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; }
+  th, td { text-align: left; padding: 0.5rem 0.75rem; border: 1px solid var(--border); }
+  th { background: var(--surface); color: var(--text); font-weight: 600; }
+  td { color: var(--muted); }
+  .subtitle { color: var(--muted); font-size: 1.1rem; margin-bottom: 2rem; }
+  .callout { background: var(--surface); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; padding: 1rem 1.25rem; margin: 1rem 0; }
+  .callout p { margin: 0.25rem 0; }
+  .callout-warn { border-left-color: var(--orange); }
+  .callout-success { border-left-color: var(--green); }
+  .callout-danger { border-left-color: var(--red); }
+  .step { display: flex; gap: 1rem; margin: 1.5rem 0; align-items: flex-start; }
+  .step-num { background: var(--accent); color: var(--bg); width: 2rem; height: 2rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; flex-shrink: 0; margin-top: 0.1rem; }
+  .step-body { flex: 1; }
+  .step-body h3 { margin-top: 0; }
+  .diagram { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin: 1rem 0; font-family: 'SF Mono', monospace; font-size: 0.8rem; line-height: 1.4; white-space: pre; overflow-x: auto; color: var(--muted); }
+  .badge { display: inline-block; padding: 0.15em 0.5em; border-radius: 12px; font-size: 0.75em; font-weight: 600; }
+  .badge-version { background: rgba(88,166,255,0.15); color: var(--accent); }
+  nav.toc { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 2rem; }
+  nav.toc a { display: inline-block; margin: 0.2rem 0.5rem; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>Berth Agent <span class="badge badge-version">v0.4.3</span></h1>
+<p class="subtitle">Lightweight deployment agent for Linux servers. Receives code from the Berth macOS app, runs it, and reports back.</p>
+
+<nav class="toc">
+  <strong>Contents:</strong>
+  <a href="#overview">Overview</a>
+  <a href="#installation">Installation</a>
+  <a href="#connection">Connection Modes</a>
+  <a href="#pairing">Pairing</a>
+  <a href="#directories">Directories</a>
+  <a href="#config">Configuration</a>
+  <a href="#commands">Commands</a>
+  <a href="#security">Security</a>
+  <a href="#upgrade">Self-Upgrade</a>
+  <a href="#systemd">Systemd</a>
+  <a href="#troubleshooting">Troubleshooting</a>
+</nav>
+
+<!-- ============================================================ -->
+<h2 id="overview">Overview</h2>
+
+<p>The Berth Agent (<code>berth-agent</code>) is a single Rust binary that runs on Linux servers as a systemd service. It has zero runtime dependencies &mdash; everything is statically linked.</p>
+
+<p>The agent:</p>
+<ul>
+  <li>Receives code deployments from the Berth desktop app or CLI</li>
+  <li>Runs projects with automatic dependency installation</li>
+  <li>Streams logs back in real-time</li>
+  <li>Maintains execution history in a local SQLite database</li>
+  <li>Executes scheduled jobs independently (even when the desktop app is offline)</li>
+  <li>Publishes services to public URLs via cloudflared tunnels</li>
+  <li>Self-upgrades with automatic rollback on failure</li>
+</ul>
+
+<table>
+  <tr><th>Property</th><th>Value</th></tr>
+  <tr><td>Platforms</td><td>Linux x86_64, Linux aarch64</td></tr>
+  <tr><td>Runs as</td><td>systemd service under <code>berth</code> user</td></tr>
+  <tr><td>Database</td><td>SQLite at <code>~/.berth/agent.db</code></td></tr>
+  <tr><td>Communication</td><td>NATS (primary) or gRPC (fallback)</td></tr>
+  <tr><td>Scheduler</td><td>Built-in, ticks every 30 seconds</td></tr>
+  <tr><td>Supported runtimes</td><td>Python, Node.js, Go, Rust, Shell</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="installation">Installation</h2>
+
+<h3>Quick Install</h3>
+<pre><code>curl -sSL https://agent.getberth.dev/install.sh | sudo bash</code></pre>
+
+<p>The installer will guide you through setup:</p>
+
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    <h3>System setup</h3>
+    <p>Detects your architecture (x86_64 or aarch64), creates a dedicated <code>berth</code> system user, and downloads the binary.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    <h3>Connection mode</h3>
+    <p>Choose how the agent communicates with the desktop app:</p>
+    <ul>
+      <li><strong>Synadia Cloud (NATS)</strong> &mdash; Recommended. Paste your NATS credentials. Both sides connect outbound &mdash; zero inbound ports, works behind NAT.</li>
+      <li><strong>Direct connection (mTLS)</strong> &mdash; Generates TLS certificates. Requires port 50051 to be reachable.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">3</div>
+  <div class="step-body">
+    <h3>Service start</h3>
+    <p>Installs a rollback script, creates the systemd service, and starts the agent.</p>
+  </div>
+</div>
+
+<h3>Verify</h3>
+<pre><code>sudo systemctl status berth-agent
+sudo journalctl -u berth-agent -f</code></pre>
+
+<h3>Uninstall</h3>
+<pre><code>curl -sSL https://agent.getberth.dev/install.sh | sudo bash -s -- --uninstall</code></pre>
+
+<!-- ============================================================ -->
+<h2 id="connection">Connection Modes</h2>
+
+<h3>Synadia Cloud (NATS) &mdash; Recommended</h3>
+
+<p>Both the desktop and agent connect outbound to Synadia's global NATS servers. Neither needs to accept incoming connections.</p>
+
+<div class="diagram">Your Mac                          Synadia Cloud                         Linux Server
+   |                                   |                                     |
+   |--- connect outbound (TLS) ------->|<------ connect outbound (TLS) ------|
+   |                                   |                                     |
+   |--- send command ----------------->|----------- forward ---------------->|
+   |<-- stream response ---------------|<---------- stream back -------------|</div>
+
+<h4>Setup</h4>
+<ol>
+  <li>Create an account at <a href="https://cloud.synadia.com">cloud.synadia.com</a></li>
+  <li>Create a System &rarr; Account &rarr; User (or use defaults)</li>
+  <li>Go to Users &rarr; select user &rarr; <strong>"Copy Credentials"</strong></li>
+  <li>Paste when the installer prompts, or configure later:
+    <pre><code>sudo -u berth berth-agent setup-nats</code></pre>
+  </li>
+</ol>
+
+<p>Credentials are saved to <code>~/.berth/nats.creds</code> (0600 permissions).</p>
+
+<h3>Direct Connection (gRPC + mTLS)</h3>
+
+<p>The desktop connects directly to the agent's IP address. Port 50051 must be reachable.</p>
+
+<ol>
+  <li>During install, choose "Direct connection" &mdash; certificates are auto-generated</li>
+  <li>Copy <code>~/.berth/certs/ca.crt</code>, <code>client.crt</code>, <code>client.key</code> to your Mac</li>
+  <li>Import them in the Berth app when adding the target</li>
+</ol>
+
+<!-- ============================================================ -->
+<h2 id="pairing">Pairing</h2>
+
+<p>Before accepting commands, the agent must be paired with your Berth desktop app. Pairing establishes a cryptographic shared secret used to sign all future commands.</p>
+
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    <h3>Get the pairing code</h3>
+    <p>When the agent starts unpaired, it generates an 8-character code:</p>
+    <pre><code>sudo journalctl -u berth-agent -f | grep PAIRING</code></pre>
+    <p>Output: <code>PAIRING CODE: ABCD1234 (expires in 5 minutes)</code></p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    <h3>Enter in the Berth app</h3>
+    <p>Go to Targets &rarr; Add Target &rarr; enter the pairing code when prompted.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">3</div>
+  <div class="step-body">
+    <h3>Verification &amp; secret exchange</h3>
+    <p>The app and agent perform a challenge-response handshake. On success, a 256-bit shared secret is generated and stored on both sides (agent SQLite + Mac Keychain).</p>
+  </div>
+</div>
+
+<h3>Pairing Details</h3>
+<table>
+  <tr><th>Property</th><th>Value</th></tr>
+  <tr><td>Code length</td><td>8 characters (A-Z, 2-9, no I/O/L/0/1)</td></tr>
+  <tr><td>Expiry</td><td>5 minutes</td></tr>
+  <tr><td>Rate limiting</td><td>5 failed attempts &rarr; 5-minute cooldown</td></tr>
+  <tr><td>Security</td><td>Challenge-response (HMAC of agent challenge using code as key)</td></tr>
+</table>
+
+<h3>Re-pairing</h3>
+<p>To pair with a different desktop app, restart the agent for a new code:</p>
+<pre><code>sudo systemctl restart berth-agent
+sudo journalctl -u berth-agent -f | grep PAIRING</code></pre>
+
+<!-- ============================================================ -->
+<h2 id="directories">Directory Structure</h2>
+
+<pre><code>~/.berth/                       # Agent home directory
+  agent.db                      # SQLite database
+  agent.env                     # Environment configuration
+  nats.creds                    # NATS credentials (0600)
+
+  bin/
+    berth-agent                 # Active binary
+    berth-agent.old             # Backup (for rollback)
+
+  certs/                        # TLS certs (direct mode only)
+    ca.crt, ca.key
+    server.crt, server.key
+    client.crt, client.key      # Copy these to your Mac
+
+  deploys/                      # Deployed project code
+    {project_id}/
+      v1/                       # Version 1
+        main.py
+        requirements.txt
+      v2/                       # Version 2
+      ...                       # Keeps last 5 versions</code></pre>
+
+<h3>Database</h3>
+<p>The SQLite database (<code>agent.db</code>) stores:</p>
+
+<table>
+  <tr><th>Table</th><th>Contents</th></tr>
+  <tr><td><code>deployments</code></td><td>Code deployments (project, version, runtime, entrypoint)</td></tr>
+  <tr><td><code>executions</code></td><td>Run history (start/end times, exit codes, trigger type)</td></tr>
+  <tr><td><code>execution_logs</code></td><td>Stdout/stderr log lines with timestamps</td></tr>
+  <tr><td><code>events</code></td><td>System events (queued for desktop to poll)</td></tr>
+  <tr><td><code>schedules</code></td><td>Cron schedules with next-run tracking</td></tr>
+  <tr><td><code>agent_config</code></td><td>Agent ID, owner ID, shared secret</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="config">Configuration</h2>
+
+<h3>Environment File (<code>~/.berth/agent.env</code>)</h3>
+
+<table>
+  <tr><th>Variable</th><th>Description</th><th>Default</th></tr>
+  <tr><td><code>RUST_LOG</code></td><td>Log level</td><td><code>info</code></td></tr>
+  <tr><td><code>BERTH_NATS_URL</code></td><td>NATS server URL</td><td><code>tls://connect.ngs.global</code></td></tr>
+  <tr><td><code>BERTH_NATS_CREDS</code></td><td>Path to credentials file</td><td><code>~/.berth/nats.creds</code></td></tr>
+  <tr><td><code>BERTH_OWNER_ID</code></td><td>Owner ID (set during pairing)</td><td>&mdash;</td></tr>
+  <tr><td><code>BERTH_PORT</code></td><td>gRPC listen port</td><td><code>50051</code></td></tr>
+  <tr><td><code>BERTH_TLS_CERT</code></td><td>Server TLS cert path</td><td>&mdash;</td></tr>
+  <tr><td><code>BERTH_TLS_KEY</code></td><td>Server TLS key path</td><td>&mdash;</td></tr>
+  <tr><td><code>BERTH_TLS_CA</code></td><td>CA cert path</td><td>&mdash;</td></tr>
+</table>
+
+<h3>CLI Flags</h3>
+<p>Override environment variables via command-line flags:</p>
+
+<table>
+  <tr><th>Flag</th><th>Description</th></tr>
+  <tr><td><code>--port PORT</code></td><td>gRPC listen port (default: 50051)</td></tr>
+  <tr><td><code>--listen-all</code></td><td>Bind 0.0.0.0 instead of localhost</td></tr>
+  <tr><td><code>--nats-url URL</code></td><td>NATS server URL</td></tr>
+  <tr><td><code>--nats-creds PATH</code></td><td>NATS credentials file</td></tr>
+  <tr><td><code>--nats-agent-id ID</code></td><td>Override auto-generated agent ID</td></tr>
+  <tr><td><code>--owner-id ID</code></td><td>Override owner ID</td></tr>
+  <tr><td><code>--show-version</code></td><td>Print version and exit</td></tr>
+</table>
+
+<p>After changing configuration, restart the agent:</p>
+<pre><code>sudo systemctl restart berth-agent</code></pre>
+
+<!-- ============================================================ -->
+<h2 id="commands">Agent Commands</h2>
+
+<pre><code># Run the agent (normally done by systemd)
+berth-agent
+
+# Self-upgrade to latest version
+berth-agent update
+
+# Self-upgrade to specific version
+berth-agent update --version 0.4.3 --yes
+
+# Generate TLS certificates
+berth-agent init-tls
+
+# Configure NATS credentials
+berth-agent setup-nats
+
+# Check version
+berth-agent --show-version</code></pre>
+
+<!-- ============================================================ -->
+<h2 id="security">Security</h2>
+
+<h3>Command Signing</h3>
+<p>Every command sent to the agent is signed with HMAC-SHA256 using the shared secret established during pairing:</p>
+<ul>
+  <li>Each command includes a <strong>signature</strong>, <strong>nonce</strong>, and <strong>timestamp</strong></li>
+  <li>Commands older than 60 seconds are rejected</li>
+  <li>Nonces prevent replay attacks (10K nonce tracker)</li>
+  <li>The agent rejects all commands before pairing is complete</li>
+</ul>
+
+<h3>Path Safety</h3>
+<ul>
+  <li>Path traversal (<code>../</code>), absolute paths, and null bytes are rejected</li>
+  <li>Tar archive entries are validated during extraction</li>
+  <li>Deploy directories are sandboxed to <code>~/.berth/deploys/</code></li>
+</ul>
+
+<h3>Process Isolation</h3>
+<ul>
+  <li>Runs as dedicated <code>berth</code> user (not root)</li>
+  <li>systemd <code>NoNewPrivileges=true</code> and <code>ProtectSystem=strict</code></li>
+  <li>Credentials and keys have 0600 permissions (owner-only)</li>
+  <li>Environment variable values are passed at runtime, never persisted on the agent</li>
+</ul>
+
+<div class="callout callout-success">
+  <p><strong>Best practices:</strong></p>
+  <ul>
+    <li>Use NATS mode to avoid exposing ports</li>
+    <li>Keep the agent updated (<code>berth-agent update</code>)</li>
+    <li>Monitor logs for unauthorized pairing attempts</li>
+    <li>If using direct mode, use firewall rules to restrict port 50051</li>
+  </ul>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="upgrade">Self-Upgrade</h2>
+
+<pre><code># Upgrade to latest
+sudo -u berth berth-agent update
+
+# Upgrade to specific version
+sudo -u berth berth-agent update --version 0.4.3 --yes</code></pre>
+
+<h3>How It Works</h3>
+<ol>
+  <li>Downloads new binary from GitHub releases</li>
+  <li>Verifies SHA256 checksum</li>
+  <li>Backs up current binary to <code>berth-agent.old</code></li>
+  <li>Atomic swap: new binary replaces current</li>
+  <li>Exits with code 42 &rarr; systemd restarts with new binary</li>
+  <li><strong>Probation (30s):</strong> New binary must pass 3 health checks</li>
+  <li>Failure: rollback script automatically restores backup</li>
+</ol>
+
+<p>Check current version:</p>
+<pre><code>berth-agent --show-version</code></pre>
+
+<!-- ============================================================ -->
+<h2 id="systemd">Systemd Management</h2>
+
+<pre><code># Check status
+sudo systemctl status berth-agent
+
+# View logs
+sudo journalctl -u berth-agent -f
+
+# Restart
+sudo systemctl restart berth-agent
+
+# Stop
+sudo systemctl stop berth-agent
+
+# Start
+sudo systemctl start berth-agent
+
+# Disable auto-start
+sudo systemctl disable berth-agent</code></pre>
+
+<h3>Service File</h3>
+<p>Located at <code>/etc/systemd/system/berth-agent.service</code>.</p>
+
+<table>
+  <tr><th>Setting</th><th>Purpose</th></tr>
+  <tr><td><code>User=berth</code></td><td>Runs as dedicated user</td></tr>
+  <tr><td><code>Restart=always</code></td><td>Auto-restart on crash (5s delay)</td></tr>
+  <tr><td><code>SuccessExitStatus=42</code></td><td>Exit 42 = upgrade restart (not a crash)</td></tr>
+  <tr><td><code>ExecStopPost=+/usr/local/lib/berth/rollback.sh</code></td><td>Auto-rollback on upgrade failure</td></tr>
+  <tr><td><code>ProtectSystem=strict</code></td><td>Read-only filesystem except <code>~/.berth</code></td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="troubleshooting">Troubleshooting</h2>
+
+<h3>Agent won't start</h3>
+<pre><code>sudo journalctl -u berth-agent -n 50
+ls -la /home/berth/.berth/bin/berth-agent
+ls -la /home/berth/.berth/agent.env</code></pre>
+
+<h3>Cannot pair</h3>
+<ul>
+  <li>Check logs for <code>PAIRING CODE</code> &mdash; it must be an unpaired agent</li>
+  <li>Codes expire in 5 minutes &mdash; restart for a new one</li>
+  <li>5 failed attempts trigger a 5-minute cooldown</li>
+  <li>Ensure NATS credentials are valid on both sides</li>
+</ul>
+
+<h3>NATS not connecting</h3>
+<ul>
+  <li>Verify <code>nats.creds</code> exists and has 0600 permissions</li>
+  <li>Check URL in <code>agent.env</code>: should be <code>tls://connect.ngs.global</code></li>
+  <li>Test connectivity: <code>curl -s https://connect.ngs.global</code></li>
+  <li>Reconfigure: <code>sudo -u berth berth-agent setup-nats</code></li>
+</ul>
+
+<h3>Deployments failing</h3>
+<ul>
+  <li>Check disk space: <code>df -h /home/berth</code></li>
+  <li>Verify runtime: <code>python3 --version</code>, <code>node --version</code></li>
+  <li>Check deploys dir: <code>ls -la /home/berth/.berth/deploys/</code></li>
+</ul>
+
+<h3>Cannot publish (public URL)</h3>
+<ul>
+  <li>Install cloudflared: <code>apt install cloudflared</code> or download from Cloudflare</li>
+  <li>Ensure the project is running and listening on the specified port</li>
+</ul>
+
+<h3>Upgrade failed</h3>
+<ul>
+  <li>Rollback should be automatic via systemd ExecStopPost</li>
+  <li>Manual rollback: <code>cp ~/.berth/bin/berth-agent.old ~/.berth/bin/berth-agent && sudo systemctl restart berth-agent</code></li>
+  <li>Check: <code>ls -la ~/.berth/.upgrading ~/.berth/.rollback-count</code></li>
+</ul>
+
+<h3>Process stuck</h3>
+<ul>
+  <li>From desktop: <code>berth stop my-project --target my-server</code></li>
+  <li>Restart agent: <code>sudo systemctl restart berth-agent</code> (kills child processes)</li>
+</ul>
+
+<p style="text-align: center; margin-top: 3rem; color: var(--muted); font-size: 0.85rem;">
+  Berth Agent v0.4.3 &mdash; <a href="https://github.com/berth-app/berth-agent">GitHub</a> &mdash; <a href="https://github.com/berth-app/berth">Berth Desktop App</a>
+</p>
+
+</div>
+</body>
+</html>
