@@ -77,7 +77,7 @@ uninstall() {
   # Optionally remove the berth user
   if id "${AGENT_USER}" &>/dev/null; then
     printf "Remove the '%s' system user? [y/N] " "${AGENT_USER}"
-    read -r answer
+    read -r answer </dev/tty
     if [ "${answer}" = "y" ] || [ "${answer}" = "Y" ]; then
       userdel "${AGENT_USER}" 2>/dev/null || true
       ok "User '${AGENT_USER}' removed."
@@ -227,7 +227,7 @@ choose_connection_mode() {
   local choice=""
   while [ "${choice}" != "1" ] && [ "${choice}" != "2" ]; do
     printf "Choose [1/2]: "
-    read -r choice
+    read -r choice </dev/tty
   done
 
   if [ "${choice}" = "1" ]; then
@@ -254,7 +254,7 @@ setup_synadia() {
 
   local creds_path=""
   printf "Enter path to .creds file (or press Enter to skip for now): "
-  read -r creds_path
+  read -r creds_path </dev/tty
 
   if [ -n "${creds_path}" ] && [ -f "${creds_path}" ]; then
     # Copy creds to berth dir
