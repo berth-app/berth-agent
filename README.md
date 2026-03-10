@@ -8,30 +8,34 @@ Lightweight deployment agent for [Berth](https://getberth.dev) — runs on your 
 curl -sSL https://agent.getberth.dev/install.sh | sudo bash
 ```
 
-This will:
+The installer will:
 - Create a `berth` system user
 - Download the agent binary for your architecture (x86_64 or aarch64)
-- Install a systemd service with auto-restart
-- Set up auto-rollback on failed upgrades
+- Ask you to choose a connection mode (Synadia Cloud or Direct)
+- Install a systemd service with auto-restart and auto-rollback
 
-## Configure
+## Connection Modes
 
-After installation, configure NATS relay for remote control (no inbound ports needed):
+### Synadia Cloud (recommended)
 
+Uses [Synadia Cloud](https://cloud.synadia.com) NATS relay — zero inbound ports required, works behind NAT and firewalls. Both the agent and desktop app connect outbound to Synadia's infrastructure.
+
+1. Create a free account at [cloud.synadia.com](https://cloud.synadia.com)
+2. Create a Team and System
+3. Download your agent credentials (`.creds` file)
+4. The installer will ask for the credentials file path during setup
+
+After installation, the agent displays a pairing code. Enter it in **Berth → Targets → Pair Agent**.
+
+### Direct Connection (mTLS)
+
+The desktop app connects directly to the agent's IP. Requires network reachability and uses mutual TLS (mTLS) for encryption and authentication.
+
+During installation, the agent generates TLS certificates automatically. Copy the CA and client certificates to your desktop machine and import them in **Berth → Settings → Direct Connection (mTLS)**.
+
+You can also generate certificates manually:
 ```bash
-sudo nano /home/berth/.berth/agent.env
-```
-
-Uncomment and set:
-```bash
-BERTH_NATS_URL=tls://connect.ngs.global
-BERTH_NATS_CREDS=/home/berth/.berth/nats.creds
-BERTH_NATS_AGENT_ID=my-server
-```
-
-Then restart:
-```bash
-sudo systemctl restart berth-agent
+sudo -u berth berth-agent init-tls
 ```
 
 ## Useful commands
@@ -51,7 +55,10 @@ curl -sSL https://agent.getberth.dev/install.sh | sudo bash -s -- --uninstall
 
 ## How it works
 
-The agent is a single Rust binary with zero runtime dependencies. It communicates with the Berth desktop app via NATS (zero inbound ports required — both sides connect outbound). It can also accept direct gRPC connections on port 50051.
+The agent is a single Rust binary with zero runtime dependencies. It supports two connection modes:
+
+- **Synadia Cloud**: Both sides connect outbound to your Synadia NATS account. Zero inbound ports, secure by default.
+- **Direct**: The agent listens on port 50051 with mTLS. The desktop app connects directly using client certificates.
 
 Features:
 - Deploy and run code (Python, Node.js, Go, Rust, shell scripts)
@@ -69,4 +76,9 @@ Features:
 
 ## License
 
-The install and rollback scripts in this repository are MIT licensed. The agent binary is proprietary software distributed by [Berth](https://getberth.dev).
+This project is licensed under the [Business Source License 1.1](LICENSE) (BSL-1.1).
+
+- **Change Date**: March 10, 2030
+- **Change License**: Apache License, Version 2.0
+
+After the change date, the code converts to Apache 2.0. You may freely use, modify, and self-host Berth for your own deployments. See the [LICENSE](LICENSE) file for full terms.
