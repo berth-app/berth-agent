@@ -153,6 +153,16 @@ create_user() {
 # ---------------------------------------------------------------------------
 
 download_binary() {
+  # Dev mode: use pre-built local binary instead of downloading
+  if [ -n "${LOCAL_BINARY:-}" ] && [ -f "${LOCAL_BINARY}" ]; then
+    info "Using local binary: ${LOCAL_BINARY}"
+    cp "${LOCAL_BINARY}" "${INSTALL_PATH}"
+    chmod +x "${INSTALL_PATH}"
+    chown "${AGENT_USER}:${AGENT_USER}" "${INSTALL_PATH}"
+    ok "Binary installed to ${INSTALL_PATH}"
+    return
+  fi
+
   local url="${BASE_URL}/${BINARY_NAME}-linux-${ARCH}"
   info "Downloading ${BINARY_NAME} from ${url}..."
 
@@ -245,23 +255,64 @@ setup_synadia() {
   echo ""
   info "Synadia Cloud setup"
   echo ""
-  echo "  If you don't have an account yet:"
-  echo "    1. Sign up at https://cloud.synadia.com (free tier available)"
-  echo "    2. Create a Team and System"
-  echo "    3. Create a User and download the credentials (.creds file)"
-  echo "    4. Copy the .creds file to this server"
+  echo "  Copy your NATS credentials from Synadia Cloud:"
+  echo ""
+  echo "    1. Sign up or log in at https://cloud.synadia.com"
+  echo "    2. Open your System (or create one)"
+  echo "    3. Go to Accounts → select an account → Users"
+  echo "    4. Click on a user (or create one for the agent)"
+  echo "    5. Click 'Copy Credentials'"
   echo ""
 
-  local creds_path=""
-  printf "Enter path to .creds file (or press Enter to skip for now): "
-  read -r creds_path </dev/tty
+  printf "Paste your credentials below, then press Enter on an empty line to finish.\n"
+  printf "(Or just press Enter to skip and configure later)\n\n"
 
-  if [ -n "${creds_path}" ] && [ -f "${creds_path}" ]; then
-    # Copy creds to berth dir
-    cp "${creds_path}" "${BERTH_DIR}/nats.creds"
+  local creds=""
+  local line
+  local first_line=true
+  while IFS= read -r line </dev/tty; do
+    # Empty line = done
+    if [ -z "${line}" ]; then
+      # If first line is empty, user is skipping
+      if [ "${first_line}" = true ]; then
+        break
+      fi
+      # Otherwise, could be a blank line in the middle of creds — check if we have both parts
+      if echo "${creds}" | grep -q "BEGIN NATS USER JWT" && echo "${creds}" | grep -q "BEGIN USER NKEY SEED"; then
+        break
+      fi
+      # Blank line in middle of paste, keep going
+      creds="${creds}
+"
+      continue
+    fi
+    first_line=false
+    if [ -z "${creds}" ]; then
+      creds="${line}"
+    else
+      creds="${creds}
+${line}"
+    fi
+  done
+
+  if [ -n "${creds}" ]; then
+    # Validate it contains both required sections
+    if ! echo "${creds}" | grep -q "BEGIN NATS USER JWT"; then
+      err "Missing NATS USER JWT section in pasted credentials."
+      err "Make sure you clicked 'Copy Credentials' on the User page in Synadia Cloud."
+      exit 1
+    fi
+    if ! echo "${creds}" | grep -q "BEGIN USER NKEY SEED"; then
+      err "Missing USER NKEY SEED section in pasted credentials."
+      err "Make sure you copied the complete credentials (both JWT and NKey)."
+      exit 1
+    fi
+
+    # Write credentials file
+    printf "%s\n" "${creds}" > "${BERTH_DIR}/nats.creds"
     chown "${AGENT_USER}:${AGENT_USER}" "${BERTH_DIR}/nats.creds"
     chmod 600 "${BERTH_DIR}/nats.creds"
-    ok "Credentials installed to ${BERTH_DIR}/nats.creds"
+    ok "Credentials saved to ${BERTH_DIR}/nats.creds"
 
     cat > "${env_file}" <<ENVEOF
 # Berth Agent Configuration — Synadia Cloud
@@ -270,17 +321,16 @@ BERTH_NATS_URL=tls://connect.ngs.global
 BERTH_NATS_CREDS=${BERTH_DIR}/nats.creds
 ENVEOF
   else
-    if [ -n "${creds_path}" ]; then
-      err "File not found: ${creds_path}"
-    fi
-    info "Skipping credentials — you can configure later:"
-    echo "    sudo nano ${env_file}"
+    info "Skipping credentials — configure later:"
+    echo "    1. In Synadia Cloud → User → click 'Copy Credentials'"
+    echo "    2. Paste into: ${BERTH_DIR}/nats.creds"
+    echo "    3. Restart:    sudo systemctl restart berth-agent"
 
     cat > "${env_file}" <<ENVEOF
 # Berth Agent Configuration — Synadia Cloud
 RUST_LOG=info
 
-# Uncomment after copying your .creds file:
+# Paste credentials from Synadia Cloud into ${BERTH_DIR}/nats.creds, then uncomment:
 # BERTH_NATS_URL=tls://connect.ngs.global
 # BERTH_NATS_CREDS=${BERTH_DIR}/nats.creds
 ENVEOF

@@ -21,9 +21,9 @@ The installer will:
 Uses [Synadia Cloud](https://cloud.synadia.com) NATS relay — zero inbound ports required, works behind NAT and firewalls. Both the agent and desktop app connect outbound to Synadia's infrastructure.
 
 1. Create a free account at [cloud.synadia.com](https://cloud.synadia.com)
-2. Create a Team and System
-3. Download your agent credentials (`.creds` file)
-4. The installer will ask for the credentials file path during setup
+2. Create a Team → System → Account → User
+3. Click **Get Connected** → **Download Credentials** to get a `.creds` file
+4. Copy the `.creds` file to your server and provide the path during installation
 
 After installation, the agent displays a pairing code. Enter it in **Berth → Targets → Pair Agent**.
 
