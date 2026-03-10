@@ -476,7 +476,7 @@ main() {
   echo "    systemctl status ${SERVICE_NAME}    # check status"
   echo "    journalctl -u ${SERVICE_NAME} -f    # follow logs"
   echo "    ${INSTALL_PATH} update              # self-update"
-  echo "    sudo bash install-agent.sh --uninstall  # remove"
+  echo "    curl -sSL https://agent.getberth.dev/install.sh | sudo bash -s -- --uninstall  # remove"
   echo ""
 }
 
